@@ -172,8 +172,8 @@ add_action( 'woocommerce_checkout_create_order', function( $order, $data ) {
     }
 }, 10, 2 );
 
-// 8) Dispara o e-mail ao notificar 'processing'
-add_action( 'woocommerce_order_status_processing_notification', function( $order_id ) {
+// 8) Dispara o e-mail quando o pedido entra em 'processing'
+function wcbc_trigger_backorder_email_on_processing( $order_id ) {
     $order = wc_get_order( $order_id );
     if ( $order && 'yes' === $order->get_meta( 'has_sob_encomenda' ) ) {
         $mailer = WC()->mailer();
@@ -182,4 +182,6 @@ add_action( 'woocommerce_order_status_processing_notification', function( $order
             $emails['WC_Email_Encomenda']->trigger( $order_id );
         }
     }
-}, 10, 1 );
+}
+
+add_action( 'woocommerce_order_status_processing', 'wcbc_trigger_backorder_email_on_processing', 10, 1 );
