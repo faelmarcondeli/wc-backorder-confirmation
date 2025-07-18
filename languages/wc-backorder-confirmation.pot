@@ -1,1 +1,7 @@
+# Copyright (C) 2025 Rafael Moreno  
+"X-Domain: wc-backorder-confirmation\n"
 
+#: wc-backorder-confirmation.php
+#: templates/emails/encomenda.php
+msgid "Just to let you know &mdash; we’ve received your order, and it is now being backorder"
+msgstr ""
