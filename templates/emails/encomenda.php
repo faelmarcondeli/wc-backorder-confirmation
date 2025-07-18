@@ -40,11 +40,11 @@ if ( ! empty( $order->get_billing_first_name() ) ) {
 ?>
 </p>
 <?php if ( $email_improvements_enabled ) : ?>
-	<p><?php esc_html_e( 'Just to let you know &mdash; we’ve received your order, and it is now being processed.', 'woocommerce' ); ?></p>
-	<p><?php esc_html_e( 'Here’s a reminder of what you’ve ordered:', 'woocommerce' ); ?></p>
+	<p><?php esc_html_e( 'Just to let you know &mdash; we’ve received your order, and it is now being backorder', 'wc-backorder-confirmation' ); ?></p>
+	<p><?php esc_html_e( 'Here’s a reminder of what you’ve backorder:', 'wc-backorder-confirmation' ); ?></p>
 <?php else : ?>
 	<?php /* translators: %s: Order number */ ?>
-	<p><?php printf( esc_html__( 'Just to let you know &mdash; we\'ve received your order #%s, and it is now being processed:', 'woocommerce' ), esc_html( $order->get_order_number() ) ); ?></p>
+	<p><?php printf( esc_html__( 'Just to let you know &mdash; we\'ve received your order #%s, and it is now being backorder:', 'wc-backorder-confirmation' ), esc_html( $order->get_order_number() ) ); ?></p>
 <?php endif; ?>
 <?php echo $email_improvements_enabled ? '</div>' : ''; ?>
 
