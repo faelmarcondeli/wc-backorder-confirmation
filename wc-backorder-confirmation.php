@@ -2,7 +2,7 @@
 /*
 Plugin Name: Woocommerce Pedido Sob Encomenda
 Description: Confirmação de backorder no produto, validação de “sob encomenda ao adicionar ao carrinho, e notificações no carrinho e no pedido.
-Version: 1.4.0
+Version: 1.4.1
 Author: Rafael Moreno   
 Text Domain: wc-backorder-confirmation
 Domain Path: /languages
