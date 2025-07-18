@@ -2,7 +2,7 @@
 /*
 Plugin Name: Woocommerce Pedido Sob Encomenda
 Description: Confirmação de backorder no produto, validação de “sob encomenda ao adicionar ao carrinho, e notificações no carrinho e no pedido.
-Version: 1.3.0
+Version: 1.4.0
 Author: Rafael Moreno   
 Text Domain: wc-backorder-confirmation
 Domain Path: /languages
@@ -10,9 +10,26 @@ Domain Path: /languages
 
 defined( 'ABSPATH' ) || exit;
 
-// 1) Rotas AJAX de backorder (sempre)
-add_action( 'wp_ajax_verificar_backorder_variacao', 'ajax_verificar_backorder' );
-add_action( 'wp_ajax_nopriv_verificar_backorder_variacao', 'ajax_verificar_backorder' );
+// 1) Carrega text domain e registra assets
+add_action( 'init', function() {
+    load_plugin_textdomain( 'wc-backorder-confirmation', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+} );
+
+/**
+ * Enfileira scripts e estilos somente na página de produto.
+ */
+function wcbc_enqueue_assets() {
+    if ( is_product() ) {
+        wp_enqueue_style( 'wcbc-backorder', plugins_url( 'assets/css/backorder.css', __FILE__ ), [], '1.0' );
+        wp_enqueue_script( 'wcbc-backorder', plugins_url( 'assets/js/backorder.js', __FILE__ ), [ 'jquery' ], '1.0', true );
+        wp_localize_script( 'wcbc-backorder', 'wcBackorder', [
+            'ajax_url'   => admin_url( 'admin-ajax.php' ),
+            'nonce'      => wp_create_nonce( 'verificar_backorder_nonce' ),
+            'product_id' => get_the_ID(),
+        ] );
+    }
+}
+add_action( 'wp_enqueue_scripts', 'wcbc_enqueue_assets' );
 
 // 2) Hooks de validação e renderização só na página de produto
 add_action( 'template_redirect', function() {
@@ -62,62 +79,18 @@ function renderizar_checkbox_sob_encomenda() {
     echo '<div id="sob-encomenda-checkbox" style="display:none;">';
     echo do_shortcode('[block id="aviso-encomenda"]');
     echo '</div>';
-    ?>
-    <script>
-    jQuery(function($){
-        const productId = <?php echo get_the_ID(); ?>;
-
-        function atualizarCheckbox(variationId = null) {
-            const qty = parseInt($('input.qty').val()) || 1;
-
-            $.post("<?php echo admin_url('admin-ajax.php'); ?>", {
-                action: "verificar_backorder",
-                product_id: productId,
-                variation_id: variationId,
-                quantidade: qty
-            }, function(res) {
-                const box = $('#sob-encomenda-checkbox');
-                // Ajuste: encontra o checkbox dentro do bloco, se existir
-                const checkbox = box.find('input[name="aceita_sob_encomenda"]');
-                if (res.backorder) {
-                    box.show();
-                    if(checkbox.length){ checkbox.prop('required', true); }
-                } else {
-                    box.hide();
-                    if(checkbox.length){ checkbox.prop('required', false); }
-                }
-            });
-        }
-
-        // Para variações
-        $('form.variations_form').on('found_variation', function(_, variation) {
-            atualizarCheckbox(variation.variation_id);
-        }).on('reset_data', function() {
-            $('#sob-encomenda-checkbox').hide().find('input').prop('required', false);
-        });
-
-        // Para quantidade
-        $('input.qty').on('change keyup input', function() {
-            const variationId = $('input.variation_id').val() || null;
-            atualizarCheckbox(variationId);
-        });
-
-        // Inicializa na carga da página
-        atualizarCheckbox();
-    });
-    </script>
-    <?php
 }
-add_action('woocommerce_after_add_to_cart_button', 'renderizar_checkbox_sob_encomenda');
 
 
-add_action('wp_ajax_verificar_backorder', 'verificar_backorder_ajax');
-add_action('wp_ajax_nopriv_verificar_backorder', 'verificar_backorder_ajax');
+add_action( 'wp_ajax_verificar_backorder', 'verificar_backorder_ajax' );
+add_action( 'wp_ajax_nopriv_verificar_backorder', 'verificar_backorder_ajax' );
 
 function verificar_backorder_ajax() {
-    $product_id   = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
-    $variation_id = isset($_POST['variation_id']) && $_POST['variation_id'] ? intval($_POST['variation_id']) : 0;
-    $qty          = isset($_POST['quantidade']) ? intval($_POST['quantidade']) : 1;
+    check_ajax_referer( 'verificar_backorder_nonce', 'nonce' );
+
+    $product_id   = isset( $_POST['product_id'] ) ? intval( $_POST['product_id'] ) : 0;
+    $variation_id = isset( $_POST['variation_id'] ) ? intval( $_POST['variation_id'] ) : 0;
+    $qty          = isset( $_POST['quantidade'] ) ? intval( $_POST['quantidade'] ) : 1;
 
     $product = $variation_id ? wc_get_product($variation_id) : wc_get_product($product_id);
     $backorder = false;

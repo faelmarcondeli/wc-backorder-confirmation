@@ -5,10 +5,10 @@ class WC_Email_Encomenda extends WC_Email {
 
     public function __construct() {
         $this->id             = 'encomenda';
-        $this->title          = 'Pedido de Encomenda';
-        $this->description    = 'Envia as condições de encomenda quando o pedido entra em processamento e possui encomenda.';
-        $this->subject        = '[{site_title}] Encomenda do seu Pedido #{order_number}';
-        $this->heading        = 'Detalhes da sua Encomenda';
+        $this->title          = __( 'Pedido de Encomenda', 'wc-backorder-confirmation' );
+        $this->description    = __( 'Envia as condições de encomenda quando o pedido entra em processamento e possui encomenda.', 'wc-backorder-confirmation' );
+        $this->subject        = __( '[{site_title}] Encomenda do seu Pedido #{order_number}', 'wc-backorder-confirmation' );
+        $this->heading        = __( 'Detalhes da sua Encomenda', 'wc-backorder-confirmation' );
 
         $this->template_html  = 'emails/encomenda.php';
         $this->template_plain = 'emails/plain/encomenda.php';
