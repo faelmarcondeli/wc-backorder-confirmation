@@ -40,11 +40,11 @@ if ( ! empty( $order->get_billing_first_name() ) ) {
 ?>
 </p>
 <?php if ( $email_improvements_enabled ) : ?>
-	<p><?php esc_html_e( 'Hello, I’d like to inform you that your order is being processed. A pre-order product is a product with insufficient stock for immediate dispatch. Further information about the final delivery time can be obtained in approximately 7 business days.', 'wc-backorder-confirmation' ); ?></p>
+	<p><?php esc_html_e( 'Hello, we would like to inform you that your order is being processed. A pre-order product is a product with insufficient stock for immediate dispatch. Further information about the final delivery time can be obtained in approximately 7 business days.', 'wc-backorder-confirmation' ); ?></p>
 	<p><?php esc_html_e( 'Here’s a reminder of what you’ve backorder:', 'woocommerce' ); ?></p>
 <?php else : ?>
 	<?php /* translators: %s: Order number */ ?>
-	<p><?php printf( esc_html__( 'Hello, I’d like to inform you that your order is being processed. A pre-order product is a product with insufficient stock for immediate dispatch. Further information about the final delivery time can be obtained in approximately 7 business days.', 'wc-backorder-confirmation' ), esc_html( $order->get_order_number() ) ); ?></p>
+	<p><?php printf( esc_html__( 'Hello, we would like to inform you that your order is being processed. A pre-order product is a product with insufficient stock for immediate dispatch. Further information about the final delivery time can be obtained in approximately 7 business days.', 'wc-backorder-confirmation' ), esc_html( $order->get_order_number() ) ); ?></p>
 <?php endif; ?>
 <?php echo $email_improvements_enabled ? '</div>' : ''; ?>
 
