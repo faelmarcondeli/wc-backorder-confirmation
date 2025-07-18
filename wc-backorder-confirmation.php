@@ -1,0 +1,212 @@
+<?php
+/*
+Plugin Name: Woocommerce Pedido Sob Encomenda
+Description: Confirmação de backorder no produto, validação de “sob encomenda ao adicionar ao carrinho, e notificações no carrinho e no pedido.
+Version: 1.3.0
+Author: Rafael Moreno   
+Text Domain: wc-backorder-confirmation
+Domain Path: /languages
+*/
+
+defined( 'ABSPATH' ) || exit;
+
+// 1) Rotas AJAX de backorder (sempre)
+add_action( 'wp_ajax_verificar_backorder_variacao', 'ajax_verificar_backorder' );
+add_action( 'wp_ajax_nopriv_verificar_backorder_variacao', 'ajax_verificar_backorder' );
+
+// 2) Hooks de validação e renderização só na página de produto
+add_action( 'template_redirect', function() {
+    if ( is_product() ) {
+        add_filter( 'woocommerce_add_to_cart_validation', 'validar_sob_encomenda', 10, 3 );
+        // Mudar hook para depois do botão de add to cart
+        add_action( 'woocommerce_after_add_to_cart_button', 'renderizar_checkbox_sob_encomenda' );
+    }
+} );
+
+/**
+ * 3) Validação no backend ao adicionar ao carrinho
+ */
+function validar_sob_encomenda( $passed, $product_id, $quantity ) {
+    $id = ( isset( $_POST['variation_id'] ) && absint( $_POST['variation_id'] ) > 0 )
+        ? absint( $_POST['variation_id'] )
+        : $product_id;
+
+    $product = wc_get_product( $id );
+    if ( ! $product ) {
+        return false;
+    }
+
+    $stock_qty          = $product->get_stock_quantity();
+    $permite_encomenda  = $product->backorders_allowed();
+    $gerencia_estoque   = $product->managing_stock();
+    $ultrapassa_estoque = ( $stock_qty !== null && $quantity > $stock_qty );
+
+    $aceita_sob_encomenda = isset( $_POST['aceita_sob_encomenda'] )
+        && filter_var( wp_unslash( $_POST['aceita_sob_encomenda'] ), FILTER_VALIDATE_BOOLEAN );
+
+    if ( $gerencia_estoque && $permite_encomenda && $ultrapassa_estoque && ! $aceita_sob_encomenda ) {
+        wc_add_notice( __( 'Você deve confirmar que aceita o prazo de encomenda para este produto.', 'wc-backorder-confirmation' ), 'error' );
+        return false;
+    }
+
+    return $passed;
+}
+
+/**
+ * 4) Renderiza o checkbox “Sob Encomenda” após o botão de adicionar ao carrinho
+ */
+function renderizar_checkbox_sob_encomenda() {
+    global $product;
+
+    // Exibe o bloco Flatsome, inicialmente oculto
+    echo '<div id="sob-encomenda-checkbox" style="display:none;">';
+    echo do_shortcode('[block id="aviso-encomenda"]');
+    echo '</div>';
+    ?>
+    <script>
+    jQuery(function($){
+        const productId = <?php echo get_the_ID(); ?>;
+
+        function atualizarCheckbox(variationId = null) {
+            const qty = parseInt($('input.qty').val()) || 1;
+
+            $.post("<?php echo admin_url('admin-ajax.php'); ?>", {
+                action: "verificar_backorder",
+                product_id: productId,
+                variation_id: variationId,
+                quantidade: qty
+            }, function(res) {
+                const box = $('#sob-encomenda-checkbox');
+                // Ajuste: encontra o checkbox dentro do bloco, se existir
+                const checkbox = box.find('input[name="aceita_sob_encomenda"]');
+                if (res.backorder) {
+                    box.show();
+                    if(checkbox.length){ checkbox.prop('required', true); }
+                } else {
+                    box.hide();
+                    if(checkbox.length){ checkbox.prop('required', false); }
+                }
+            });
+        }
+
+        // Para variações
+        $('form.variations_form').on('found_variation', function(_, variation) {
+            atualizarCheckbox(variation.variation_id);
+        }).on('reset_data', function() {
+            $('#sob-encomenda-checkbox').hide().find('input').prop('required', false);
+        });
+
+        // Para quantidade
+        $('input.qty').on('change keyup input', function() {
+            const variationId = $('input.variation_id').val() || null;
+            atualizarCheckbox(variationId);
+        });
+
+        // Inicializa na carga da página
+        atualizarCheckbox();
+    });
+    </script>
+    <?php
+}
+add_action('woocommerce_after_add_to_cart_button', 'renderizar_checkbox_sob_encomenda');
+
+
+add_action('wp_ajax_verificar_backorder', 'verificar_backorder_ajax');
+add_action('wp_ajax_nopriv_verificar_backorder', 'verificar_backorder_ajax');
+
+function verificar_backorder_ajax() {
+    $product_id   = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
+    $variation_id = isset($_POST['variation_id']) && $_POST['variation_id'] ? intval($_POST['variation_id']) : 0;
+    $qty          = isset($_POST['quantidade']) ? intval($_POST['quantidade']) : 1;
+
+    $product = $variation_id ? wc_get_product($variation_id) : wc_get_product($product_id);
+    $backorder = false;
+
+    if ($product && $product->managing_stock() && $product->backorders_allowed()) {
+        $stock = $product->get_stock_quantity();
+        // Só exibe o aviso se o estoque não for nulo e a quantidade for maior que o estoque disponível
+        if ($stock !== null && $qty > $stock) {
+            $backorder = true;
+        }
+    }
+
+    wp_send_json(['backorder' => $backorder]);
+}
+
+
+/**
+ * 5) Helpers para cupom “AMOSTRAS” e notificações de backorder
+ */
+// 5.1 Verifica cupom amostras”
+function wc_has_sample_coupon() {
+    if ( ! WC()->cart ) {
+        return false;
+    }
+    return in_array( 'amostras', WC()->cart->get_applied_coupons(), true );
+}
+// 5.2 Detecta backorder que requer notificaão
+function wc_is_on_backorder_require_notification( WC_Product $product, $quantity = 1 ) {
+    if ( wc_has_sample_coupon() ) {
+        return false;
+    }
+    return $product->backorders_require_notification()
+        && $product->is_on_backorder( $quantity );
+}
+// 5.3 Texto da notificação
+function wc_backorder_notice_text() {
+    return __( 'Estará disponível entre 4 a 15 dias úteis', 'wc-backorder-confirmation' );
+}
+// 5.4 HTML da notificação
+function wc_backorder_notice_html() {
+    return '<p class="backorder_notification backorder_notification_custom">'
+         . wc_backorder_notice_text()
+         . '</p>';
+}
+
+// 5.5) Exibe aviso no carrinho, abaixo do nome do item
+add_action( 'woocommerce_after_cart_item_name', function( $cart_item, $cart_item_key ) {
+    $product  = $cart_item['data'];
+    $quantity = $cart_item['quantity'];
+
+    if ( wc_is_on_backorder_require_notification( $product, $quantity ) ) {
+        echo wc_backorder_notice_html();
+    }
+}, 10, 2 );
+
+// 6) Registra o email personalizado
+add_filter( 'woocommerce_email_classes', function( $email_classes ) {
+    require_once __DIR__ . '/includes/class-wc-email-encomenda.php';
+    $email_classes['WC_Email_Encomenda'] = new WC_Email_Encomenda();
+    return $email_classes;
+} );
+
+// 7) Marca o item no carrinho
+add_filter( 'woocommerce_add_cart_item_data', function( $cart_item, $product_id ) {
+    if ( ! empty( $_POST['aceita_sob_encomenda'] ) && filter_var( wp_unslash( $_POST['aceita_sob_encomenda'] ), FILTER_VALIDATE_BOOLEAN ) ) {
+        $cart_item['aceita_sob_encomenda'] = true;
+        $cart_item['unique_key'] = md5( microtime() . rand() );
+    }
+    return $cart_item;
+}, 10, 2 );
+
+// 7.1) Salva flag no pedido
+add_action( 'woocommerce_checkout_create_order', function( $order, $data ) {
+    foreach ( WC()->cart->get_cart() as $item ) {
+        if ( ! empty( $item['aceita_sob_encomenda'] ) ) {
+            $order->update_meta_data( 'has_sob_encomenda', 'yes' );
+            break;
+        }
+    }
+}, 10, 2 );
+
+// 8) Dispara o e-mail ao notificar 'processing'
+add_action( 'woocommerce_order_status_processing_notification', function( $order_id ) {
+    $order = wc_get_order( $order_id );
+    if ( $order && 'yes' === $order->get_meta( 'has_sob_encomenda' ) ) {
+        $mailer = WC()->mailer();
+        $emails = $mailer->get_emails();
+        if ( ! empty( $emails['WC_Email_Encomenda'] ) ) {
+            $emails['WC_Email_Encomenda']->trigger( $order_id );
+        }
+    }
+}, 10, 1 );
