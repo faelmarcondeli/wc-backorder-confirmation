@@ -3,5 +3,5 @@
 
 #: wc-backorder-confirmation.php
 #: templates/emails/encomenda.php
-msgid "Hello, I’d like to inform you that your order is being processed. A pre-order product is a product with insufficient stock for immediate dispatch. Further information about the final delivery time can be obtained in approximately 7 business days."
+msgid "Hello, we would like to inform you that your order is being processed. A pre-order product is a product with insufficient stock for immediate dispatch. Further information about the final delivery time can be obtained in approximately 7 business days."
 msgstr ""
