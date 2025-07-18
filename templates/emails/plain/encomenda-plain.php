@@ -28,11 +28,11 @@ echo "\n=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n";
 /* translators: %s: Customer first name */
 echo sprintf( esc_html__( 'Hi %s,', 'woocommerce' ), esc_html( $order->get_billing_first_name() ) ) . "\n\n";
 if ( $email_improvements_enabled ) {
-	echo esc_html__( 'Just to let you know &mdash; we’ve received your order, and it is now being processed.', 'woocommerce' ) . "\n\n";
+	echo esc_html__( 'We would like to inform you that your order is being processed. A pre-order product is a product with insufficient stock for immediate dispatch. Further information about the final delivery time can be obtained in approximately 7 business days.', 'wc-backorder-confirmation' ) . "\n\n";
 	echo esc_html__( 'Here’s a reminder of what you’ve ordered:', 'woocommerce' ) . "\n\n";
 } else {
 	/* translators: %s: Order number */
-	echo sprintf( esc_html__( 'Just to let you know &mdash; we\'ve received your order #%s, and it is now being processed:', 'woocommerce' ), esc_html( $order->get_order_number() ) ) . "\n\n";
+	echo sprintf( esc_html__( 'We would like to inform you that your order is being processed. A pre-order product is a product with insufficient stock for immediate dispatch. Further information about the final delivery time can be obtained in approximately 7 business days.', 'wc-backorder-confirmation' ), esc_html( $order->get_order_number() ) ) . "\n\n";
 }
 
 /*
