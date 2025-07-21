@@ -21,5 +21,9 @@ msgid ""
 msgstr ""
 "Gostaríamos de informar que seu pedido de encomenda está processando. Um "
 "produto sob encomenda é um produto com estoque insuficiente para despacho "
-"imediato, mais informações sobre a prazo final de entrega podem ser "
-"obtidas em aproximadamente 7 dias úteis."
+"imediato, mais informações sobre a prazo final de entrega podem ser obtidas "
+"em aproximadamente 7 dias úteis."
+
+#: wc-backorder-confirmation.php templates/emails/encomenda.php
+msgid "Here’s a reminder of what you’ve backorder:"
+msgstr "Aqui estão alguns detalhes sobre sua encomenda:"
