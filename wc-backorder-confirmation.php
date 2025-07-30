@@ -2,7 +2,7 @@
 /*
 Plugin Name: Woocommerce Pedido Sob Encomenda
 Description: Confirmação de backorder no produto, validação de “sob encomenda ao adicionar ao carrinho, e notificações no carrinho e no pedido.
-Version: 1.4.2
+Version: 1.4.3
 Author: Rafael Moreno   
 Text Domain: wc-backorder-confirmation
 Domain Path: /languages
@@ -208,3 +208,23 @@ function wcbc_show_backorder_notice_thankyou( $order_id ) {
     }
 }
 add_action( 'woocommerce_thankyou', 'wcbc_show_backorder_notice_thankyou', 20 );
+
+/**
+ * Salva uma flag no item do pedido para indicar que estava em backorder.
+ */
+function wcbc_mark_backorder_line_item( $item, $cart_item_key, $values, $order ) {
+    if ( ! empty( $values['aceita_sob_encomenda'] ) ) {
+        $item->add_meta_data( '_wcbc_backorder', 'yes', true );
+    }
+}
+add_action( 'woocommerce_checkout_create_order_line_item', 'wcbc_mark_backorder_line_item', 10, 4 );
+
+/**
+ * Exibe a notificação no meta do item na página de agradecimento.
+ */
+function wcbc_show_backorder_item_meta( $item_id, $item, $order, $plain_text ) {
+    if ( is_order_received_page() && 'yes' === $item->get_meta( '_wcbc_backorder' ) ) {
+        echo wc_backorder_notice_html();
+    }
+}
+add_action( 'woocommerce_order_item_meta_end', 'wcbc_show_backorder_item_meta', 10, 4 );
