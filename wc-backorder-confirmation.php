@@ -79,7 +79,12 @@ function renderizar_checkbox_sob_encomenda() {
 
     // Exibe o bloco Flatsome, inicialmente oculto
     echo '<div id="sob-encomenda-checkbox" style="display:none;">';
-    echo do_shortcode('[block id="aviso-encomenda"]');
+    $html = get_transient( 'wcbc_aviso_encomenda' );
+    if ( false === $html ) {
+        $html = do_shortcode( '[block id="aviso-encomenda"]' );
+        set_transient( 'wcbc_aviso_encomenda', $html, DAY_IN_SECONDS );
+    }
+    echo $html;
     echo '</div>';
 }
 

@@ -26,9 +26,13 @@ jQuery(function($){
         $('#sob-encomenda-checkbox').hide().find('input').prop('required', false);
     });
 
+    let debounceTimer;
     $('input.qty').on('change keyup input', function(){
+        clearTimeout(debounceTimer);
         const variationId = $('input.variation_id').val() || null;
-        atualizarCheckbox(variationId);
+        debounceTimer = setTimeout(function(){
+            atualizarCheckbox(variationId);
+        }, 300);
     });
 
     atualizarCheckbox();
