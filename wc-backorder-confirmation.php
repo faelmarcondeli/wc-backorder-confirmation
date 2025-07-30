@@ -8,7 +8,9 @@ Text Domain: wc-backorder-confirmation
 Domain Path: /languages
 */
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit; // evita acesso direto
+}
 
 // 1) Carrega text domain e registra assets
 add_action( 'init', function() {
