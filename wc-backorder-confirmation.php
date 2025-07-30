@@ -21,6 +21,7 @@ add_action( 'init', function() {
  * Enfileira scripts e estilos somente na página de produto.
  */
 function wcbc_enqueue_assets() {
+    require_once __DIR__ . '/includes/class-wc-backorder-webhook.php';
     if ( is_product() ) {
         wp_enqueue_style( 'wcbc-backorder', plugins_url( 'assets/css/backorder.css', __FILE__ ), [], '1.0' );
         wp_enqueue_script( 'wcbc-backorder', plugins_url( 'assets/js/backorder.js', __FILE__ ), [ 'jquery' ], '1.0', true );
