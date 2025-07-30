@@ -162,6 +162,7 @@ add_action( 'woocommerce_after_cart_item_name', function( $cart_item, $cart_item
 // 6) Registra o email personalizado
 add_filter( 'woocommerce_email_classes', function( $email_classes ) {
     require_once __DIR__ . '/includes/class-wc-email-encomenda.php';
+    require_once __DIR__ . '/includes/class-wc-backorder-webhook.php';
     $email_classes['WC_Email_Encomenda'] = new WC_Email_Encomenda();
     return $email_classes;
 } );
