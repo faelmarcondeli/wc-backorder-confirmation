@@ -1,8 +1,22 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Hook único para processar só pedidos com backorder
-add_action( 'woocommerce_order_status_processing', 'tiny_notifica_encomenda_backorder', 10, 1 );
+// Agenda processamento assíncrono quando o pedido entra em processing
+add_action( 'woocommerce_order_status_processing', 'tiny_schedule_backorder_notification', 10, 1 );
+
+/**
+ * Enfileira a notificação para execução assíncrona via Action Scheduler.
+ */
+function tiny_schedule_backorder_notification( $order_id ) {
+    if ( function_exists( 'as_enqueue_async_action' ) ) {
+        as_enqueue_async_action( 'wcbc_tiny_notify_backorder', [ 'order_id' => $order_id ], 'wcbc' );
+    } else {
+        // Fallback para execução imediata caso o Action Scheduler não esteja disponível
+        tiny_notifica_encomenda_backorder( $order_id );
+    }
+}
+
+add_action( 'wcbc_tiny_notify_backorder', 'tiny_notifica_encomenda_backorder' );
 function tiny_notifica_encomenda_backorder( $order_id ) {
     $order = wc_get_order( $order_id );
     if ( ! $order ) {
@@ -39,25 +53,30 @@ function tiny_notifica_encomenda_backorder( $order_id ) {
     $url_marcador    = 'https://api.tiny.com.br/api2/pedido.marcadores.incluir';
 
     // 3) Busca o idPedido no Tiny passando numeroEcommerce = $order_id
-    $search_args = [
-        'token'           => $token,
-        'numeroEcommerce' => $order_id,
-        'formato'         => 'JSON',
-    ];
-    $res_search = wp_remote_get( add_query_arg( $search_args, $url_busca ), [
-        'timeout' => 15,
-        'headers' => [ 'Accept' => 'application/json' ],
-    ] );
-    if ( is_wp_error( $res_search ) ) {
-        error_log( "Tiny busca falhou (#{$order_id}): " . $res_search->get_error_message() );
-        return;
+    $tiny_id = $order->get_meta( 'tiny_pedido_id', true );
+    if ( ! $tiny_id ) {
+        $search_args = [
+            'token'           => $token,
+            'numeroEcommerce' => $order_id,
+            'formato'         => 'JSON',
+        ];
+        $res_search = wp_remote_get( add_query_arg( $search_args, $url_busca ), [
+            'timeout' => 15,
+            'headers' => [ 'Accept' => 'application/json' ],
+        ] );
+        if ( is_wp_error( $res_search ) ) {
+            error_log( "Tiny busca falhou (#{$order_id}): " . $res_search->get_error_message() );
+            return;
+        }
+        $data_search = json_decode( wp_remote_retrieve_body( $res_search ), true );
+        if ( empty( $data_search['retorno']['pedidos']['pedido'][0]['idPedido'] ) ) {
+            error_log( "Tiny não retornou idPedido para ecommerce #{$order_id}: " . print_r( $data_search, true ) );
+            return;
+        }
+        $tiny_id = $data_search['retorno']['pedidos']['pedido'][0]['idPedido'];
+        $order->update_meta_data( 'tiny_pedido_id', $tiny_id );
+        $order->save();
     }
-    $data_search = json_decode( wp_remote_retrieve_body( $res_search ), true );
-    if ( empty( $data_search['retorno']['pedidos']['pedido'][0]['idPedido'] ) ) {
-        error_log( "Tiny não retornou idPedido para ecommerce #{$order_id}: " . print_r( $data_search, true ) );
-        return;
-    }
-    $tiny_id = $data_search['retorno']['pedidos']['pedido'][0]['idPedido'];
 
     // 4) Monta o payload do marcador “encomenda”
     $marcadores = [
@@ -78,16 +97,8 @@ function tiny_notifica_encomenda_backorder( $order_id ) {
         'marcadores' => wp_json_encode( $marcadores ),
         'formato'    => 'json',
     ];
-    $res_marker = wp_remote_get( add_query_arg( $marker_args, $url_marcador ), [
-        'timeout' => 15,
-        'headers' => [ 'Accept' => 'application/json' ],
+    wp_remote_post( add_query_arg( $marker_args, $url_marcador ), [
+        'blocking' => false,
+        'headers'  => [ 'Accept' => 'application/json' ],
     ] );
-    if ( is_wp_error( $res_marker ) ) {
-        error_log( "Tiny marcador falhou (Woo #{$order_id} → Tiny #{$tiny_id}): " . $res_marker->get_error_message() );
-        return;
-    }
-    $data_marker = json_decode( wp_remote_retrieve_body( $res_marker ), true );
-    if ( empty( $data_marker['retorno']['status'] ) || 'SUCCESS' !== strtoupper( $data_marker['retorno']['status'] ) ) {
-        error_log( "Tiny marcador retornou erro (Woo #{$order_id} → Tiny #{$tiny_id}): " . print_r( $data_marker, true ) );
-    }
 }
