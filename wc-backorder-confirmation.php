@@ -30,6 +30,11 @@ function wcbc_enqueue_assets() {
             'nonce'      => wp_create_nonce( 'verificar_backorder_nonce' ),
             'product_id' => get_the_ID(),
         ] );
+    } elseif ( is_order_received_page() && ! empty( $_GET['order-received'] ) ) {
+        $order = wc_get_order( absint( $_GET['order-received'] ) );
+        if ( $order && 'yes' === $order->get_meta( 'has_sob_encomenda' ) ) {
+            wp_enqueue_style( 'wcbc-backorder', plugins_url( 'assets/css/backorder.css', __FILE__ ), [], '1.0' );
+        }
     }
 }
 add_action( 'wp_enqueue_scripts', 'wcbc_enqueue_assets' );
@@ -193,3 +198,14 @@ function wcbc_trigger_backorder_email_on_processing( $order_id ) {
 }
 
 add_action( 'woocommerce_order_status_processing', 'wcbc_trigger_backorder_email_on_processing', 10, 1 );
+
+/**
+ * Exibe a notificação de backorder na página de "pedido recebido".
+ */
+function wcbc_show_backorder_notice_thankyou( $order_id ) {
+    $order = wc_get_order( $order_id );
+    if ( $order && 'yes' === $order->get_meta( 'has_sob_encomenda' ) ) {
+        echo wc_backorder_notice_html();
+    }
+}
+add_action( 'woocommerce_thankyou', 'wcbc_show_backorder_notice_thankyou', 20 );
