@@ -1,8 +1,8 @@
 <?php
 /*
-Plugin Name: Woocommerce Pedido Sob Encomenda (Único arquivo)
+Plugin Name: Woocommerce Pedido Sob Encomenda
 Description: Mostra checkbox de aceitação apenas quando a quantidade excede o estoque e o produto permite encomenda. Inclui validação, avisos e e-mail. Sem AJAX.
-Version: 1.6.1
+Version: 1.6.2
 Author: Rafael Moreno
 Text Domain: wc-backorder-confirmation
 Domain Path: /languages
