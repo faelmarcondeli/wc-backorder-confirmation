@@ -19,8 +19,8 @@ if (!class_exists('WC_Integration')) {
 class WC_Integration_Tiny_Webhook extends WC_Integration {
     public const TRANSIENT_PREFIX = 'wcbc_tiny_id_';
     public const LOG_SOURCE       = 'tiny-webhook';
-    // Delay set to 3 hours
-    public const DELAY_SECONDS    = 3 * HOUR_IN_SECONDS;
+    // Delay set to 6 minutes (360 seconds)
+    public const DELAY_SECONDS    = 360;
 
     public function __construct() {
         $this->id                 = 'tiny-webhook';
@@ -131,11 +131,13 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
             return;
         }
 
+        // Save Tiny ID as an order note (observation) as requested
+        $order->add_order_note( sprintf( 'ID do pedido no Tiny localizado: %s', esc_html( (string) $tiny_id ) ), false );
+
         if ( $this->send_marker( $tiny_id, $order_id ) ) {
             $order->update_meta_data( 'tiny_order_id', $tiny_id );
             $order->update_meta_data( 'tiny_marker_sent', 'yes' );
             $order->save_meta_data();
-            $order->add_order_note( sprintf( 'Tiny marker sent (ID: %s).', esc_html( (string) $tiny_id ) ), false );
             $this->log( 'Marker sent successfully.', 'info', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
         }
     }
