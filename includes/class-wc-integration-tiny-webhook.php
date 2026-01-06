@@ -53,17 +53,38 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
                 'title'       => __( 'Tiny Marcador ID (Encomenda)', 'wc-backorder-confirmation' ),
                 'type'        => 'number',
                 'default'     => 185669,
-                'description' => __( 'ID do marcador no Tiny.', 'wc-backorder-confirmation' ),
+                'description' => __( 'ID do marcador de Encomenda no Tiny.', 'wc-backorder-confirmation' ),
                 'desc_tip'    => true,
             ],
             'marker_desc' => [
                 'title'       => __( 'Tiny Marcador Descrição (Encomenda)', 'wc-backorder-confirmation' ),
                 'type'        => 'text',
                 'default'     => 'Encomenda',
-                'description' => __( 'Descrição do marcador no Tiny.', 'wc-backorder-confirmation' ),
+                'description' => __( 'Descrição do marcador de Encomenda no Tiny.', 'wc-backorder-confirmation' ),
+                'desc_tip'    => true,
+            ],
+            'marker_id_amostras' => [
+                'title'       => __( 'Tiny Marcador ID (Amostras)', 'wc-backorder-confirmation' ),
+                'type'        => 'number',
+                'default'     => 177898,
+                'description' => __( 'ID do marcador de Amostras no Tiny. Usado quando o pedido tem o cupom "amostras".', 'wc-backorder-confirmation' ),
+                'desc_tip'    => true,
+            ],
+            'marker_desc_amostras' => [
+                'title'       => __( 'Tiny Marcador Descrição (Amostras)', 'wc-backorder-confirmation' ),
+                'type'        => 'text',
+                'default'     => 'Amostras',
+                'description' => __( 'Descrição do marcador de Amostras no Tiny.', 'wc-backorder-confirmation' ),
                 'desc_tip'    => true,
             ],
         ];
+    }
+    
+    // Verifica se o pedido tem o cupom "amostras"
+    protected function order_has_amostras( WC_Order $order ): bool {
+        $codes = method_exists( $order, 'get_coupon_codes' ) ? $order->get_coupon_codes() : $order->get_used_coupons();
+        $codes = array_map( 'strtolower', (array) $codes );
+        return in_array( 'amostras', $codes, true );
     }
 
     // Agenda a notificação com atraso, evitando duplicatas
@@ -88,13 +109,19 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
         }
         
         $has_sob_encomenda = $order->get_meta( 'has_sob_encomenda' );
-        $this->log( 'Checking backorder status.', 'debug', [
+        $has_amostras = $this->order_has_amostras( $order );
+        
+        $this->log( 'Checking order conditions.', 'debug', [
             'order_id' => $order_id,
-            'has_sob_encomenda_meta' => $has_sob_encomenda ?: 'not set'
+            'has_sob_encomenda_meta' => $has_sob_encomenda ?: 'not set',
+            'has_amostras_coupon' => $has_amostras ? 'yes' : 'no'
         ] );
         
-        if ( ! $this->has_backorder_items( $order ) ) {
-            $this->log( 'No backorder items detected. Skipping Tiny notification.', 'info', ['order_id' => $order_id] );
+        // Agenda se tiver cupom "amostras" OU se tiver itens sob encomenda (sem cupom amostras)
+        $should_schedule = $has_amostras || $this->has_backorder_items( $order );
+        
+        if ( ! $should_schedule ) {
+            $this->log( 'No amostras coupon and no backorder items. Skipping Tiny notification.', 'info', ['order_id' => $order_id] );
             return;
         }
 
@@ -126,7 +153,17 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
         }
     
         $order = wc_get_order( $order_id );
-        if ( ! $order || ! $this->has_backorder_items( $order ) ) {
+        if ( ! $order ) {
+            $this->log( 'Order not found in process.', 'error', ['order_id' => $order_id] );
+            return;
+        }
+        
+        // Verifica se tem cupom "amostras" ou itens sob encomenda
+        $has_amostras = $this->order_has_amostras( $order );
+        $has_backorder = $this->has_backorder_items( $order );
+        
+        if ( ! $has_amostras && ! $has_backorder ) {
+            $this->log( 'No amostras coupon and no backorder items. Skipping.', 'info', ['order_id' => $order_id] );
             return;
         }
 
@@ -144,11 +181,30 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
         // Save Tiny ID as an order note (observation) as requested
         $order->add_order_note( sprintf( 'ID do pedido no Tiny localizado: %s', esc_html( (string) $tiny_id ) ), false );
 
-        if ( $this->send_marker( $tiny_id, $order_id ) ) {
+        // Determina qual marcador usar: Amostras ou Encomenda
+        if ( $has_amostras ) {
+            $marker_id = (int) $this->get_option( 'marker_id_amostras', 177898 );
+            $marker_desc = $this->get_option( 'marker_desc_amostras', 'Amostras' );
+            $marker_type = 'Amostras';
+        } else {
+            $marker_id = (int) $this->get_option( 'marker_id', 185669 );
+            $marker_desc = $this->get_option( 'marker_desc', 'Encomenda' );
+            $marker_type = 'Encomenda';
+        }
+        
+        $this->log( 'Sending marker.', 'info', [
+            'order_id' => $order_id,
+            'tiny_id' => $tiny_id,
+            'marker_type' => $marker_type,
+            'marker_id' => $marker_id
+        ] );
+
+        if ( $this->send_marker( $tiny_id, $order_id, $marker_id, $marker_desc ) ) {
             $order->update_meta_data( 'tiny_order_id', $tiny_id );
             $order->update_meta_data( 'tiny_marker_sent', 'yes' );
+            $order->update_meta_data( 'tiny_marker_type', $marker_type );
             $order->save_meta_data();
-            $this->log( 'Marker sent successfully.', 'info', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
+            $this->log( 'Marker sent successfully.', 'info', ['order_id' => $order_id, 'tiny_id' => $tiny_id, 'marker_type' => $marker_type] );
             
             // Após incluir o marcador, altera a situação para "cancelado" e depois para "aprovado"
             $this->update_order_status_sequence( $tiny_id, $order_id );
@@ -305,11 +361,9 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
     }
 
     // Envia marcador ao Tiny e valida resposta
-    protected function send_marker( int $tiny_id, int $order_id ): bool {
-        $token     = $this->get_option( 'token' );
-        $marker_id = (int) $this->get_option( 'marker_id' );
-        $desc      = $this->get_option( 'marker_desc' );
-        $url       = 'https://api.tiny.com.br/api2/pedido.marcadores.incluir';
+    protected function send_marker( int $tiny_id, int $order_id, int $marker_id, string $marker_desc ): bool {
+        $token = $this->get_option( 'token' );
+        $url   = 'https://api.tiny.com.br/api2/pedido.marcadores.incluir';
         
         // Monta o array de marcadores no formato esperado pela API
         $marcadores = [
@@ -317,7 +371,7 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
                 [
                     'marcador' => [
                         'id' => $marker_id,
-                        'descricao' => $desc
+                        'descricao' => $marker_desc
                     ]
                 ]
             ]
@@ -334,7 +388,8 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
         $this->log( 'Sending marker request.', 'debug', [
             'order_id' => $order_id,
             'tiny_id' => $tiny_id,
-            'marker_id' => $marker_id
+            'marker_id' => $marker_id,
+            'marker_desc' => $marker_desc
         ] );
 
         $res = wp_remote_get( $request_url, ['timeout' => 15] );
