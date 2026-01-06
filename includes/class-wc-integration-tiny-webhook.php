@@ -24,7 +24,7 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
 
     public function __construct() {
         $this->id                 = 'tiny-webhook';
-        $this->method_title       = __( 'Tiny Webhook', 'wc-backorder-confirmation' );
+        $this->method_title       = __( 'Tiny Webhooks', 'wc-backorder-confirmation' );
         $this->method_description = __( 'Envia marcadores ao Tiny para pedidos com produtos em backorder.', 'wc-backorder-confirmation' );
 
         // Define form fields
@@ -53,14 +53,14 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
                 'title'       => __( 'Tiny Marker ID', 'wc-backorder-confirmation' ),
                 'type'        => 'number',
                 'default'     => 185669,
-                'description' => __( 'ID do marcador no Tiny.', 'wc-backorder-confirmation' ),
+                'description' => __( 'ID do marcador(pedido) de encomenda no Tiny.', 'wc-backorder-confirmation' ),
                 'desc_tip'    => true,
             ],
             'marker_desc' => [
                 'title'       => __( 'Tiny Marker Description', 'wc-backorder-confirmation' ),
                 'type'        => 'text',
                 'default'     => 'Encomenda',
-                'description' => __( 'Descrição do marcador no Tiny.', 'wc-backorder-confirmation' ),
+                'description' => __( 'Descrição do marcador(pedido) de encomenda no Tiny.', 'wc-backorder-confirmation' ),
                 'desc_tip'    => true,
             ],
         ];
