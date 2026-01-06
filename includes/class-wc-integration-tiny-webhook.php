@@ -104,19 +104,14 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
     }
 
     // Processa e envia o marcador ao Tiny
-    public function process_notification( $args ): void {
-        $order_id = is_array( $args ) && isset( $args['order_id'] )
-            ? absint( $args['order_id'] )
-            : absint( $args );
-
+    public function process_notification( int $order_id ): void {
         if ( $order_id <= 0 ) {
-            $this->log( 'Invalid order ID in process.', 'warning', ['args' => $args] );
+            $this->log( 'Invalid order ID in process.', 'warning' );
             return;
         }
-
+    
         $order = wc_get_order( $order_id );
         if ( ! $order || ! $this->has_backorder_items( $order ) ) {
-            $this->log( 'No backorder items in process.', 'info', ['order_id' => $order_id] );
             return;
         }
 
@@ -145,9 +140,9 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
     // Detecta itens em backorder utilizando API interna do WC_Order_Item
     protected function has_backorder_items( WC_Order $order ): bool {
         foreach ( $order->get_items( 'line_item' ) as $item ) {
-            if ( $item->is_on_backorder() ) {
-                return true;
-            }
+            if ( method_exists( $item, 'is_on_backorder' ) && $item->is_on_backorder() ) {
+            return true;
+        }
         }
         return false;
     }
