@@ -149,69 +149,7 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
             $order->update_meta_data( 'tiny_marker_sent', 'yes' );
             $order->save_meta_data();
             $this->log( 'Marker sent successfully.', 'info', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
-            
-            // Altera situação do pedido: primeiro para "cancelado", depois para "aprovado"
-            if ( $this->change_order_status( $tiny_id, 'cancelado', $order_id ) ) {
-                $this->log( 'Order status changed to cancelado.', 'info', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
-                
-                // Pequeno delay antes de mudar para aprovado
-                usleep( 500000 ); // 0.5 segundos
-                
-                if ( $this->change_order_status( $tiny_id, 'aprovado', $order_id ) ) {
-                    $this->log( 'Order status changed to aprovado.', 'info', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
-                    $order->add_order_note( 'Situação do pedido no Tiny atualizada para aprovado.', false );
-                }
-            }
         }
-    }
-    
-    // Altera a situação do pedido no Tiny
-    protected function change_order_status( int $tiny_id, string $situacao, int $order_id ): bool {
-        $token = $this->get_option( 'token' );
-        $url   = 'https://api.tiny.com.br/api2/pedido.alterar.situacao';
-        
-        $request_url = add_query_arg( [
-            'token'    => $token,
-            'id'       => $tiny_id,
-            'situacao' => $situacao,
-            'formato'  => 'json',
-        ], $url );
-        
-        $this->log( "Changing order status to {$situacao}.", 'debug', [
-            'order_id' => $order_id,
-            'tiny_id' => $tiny_id,
-            'situacao' => $situacao
-        ] );
-
-        $res = wp_remote_get( $request_url, ['timeout' => 15] );
-
-        if ( is_wp_error( $res ) ) {
-            $this->log( 'Tiny status change HTTP error: ' . $res->get_error_message(), 'error', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
-            return false;
-        }
-
-        $code = wp_remote_retrieve_response_code( $res );
-        if ( 200 !== $code ) {
-            $this->log( "Tiny status change HTTP {$code}", 'error', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
-            return false;
-        }
-
-        $body = wp_remote_retrieve_body( $res );
-        $this->log( "Tiny status change response for {$situacao}.", 'debug', ['order_id' => $order_id, 'response' => $body] );
-        
-        $data = json_decode( $body, true );
-        if ( JSON_ERROR_NONE !== json_last_error() ) {
-            $this->log( 'Status change JSON parse error: ' . json_last_error_msg(), 'error', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
-            return false;
-        }
-
-        $status = $data['retorno']['status'] ?? null;
-        if ( null === $status || strtoupper( $status ) !== 'OK' ) {
-            $this->log( "Tiny status change to {$situacao} failed: " . wp_json_encode( $data ), 'error', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
-            return false;
-        }
-
-        return true;
     }
 
     // Detecta itens em backorder usando a meta salva pelo plugin principal
