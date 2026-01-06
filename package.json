@@ -1,0 +1,15 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "=== Disponibilizar encomenda de produtos === Tags: encomenda, Tiny ERP (Olist) Integration,  Requires at least: 6.0 Tested up to: 6.9 Requires PHP: 7.4+ Requires Wordpress 4.0+ Requires WooCommerce 4.0+ Utilizes Wordpress 6.9 Utilizes WooCommerce 10.40.3 Utilizes Wordpress Theme Flastome: 3.20.4 Utilizes Melhorias no e-mail do Woocommerce Utilizes Woocommerce Índices de pesquisa de texto completo do HPOS Utilizes LitespeedCache 7.7 License: GPLv3 License URI: https://www.gnu.org/licenses/gpl-3.0.html",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "serve": "^14.2.5"
+  }
+}
