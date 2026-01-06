@@ -68,6 +68,8 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
 
     // Agenda a notificação com atraso, evitando duplicatas
     public function schedule_notification( int $order_id ): void {
+        $this->log( 'schedule_notification triggered.', 'info', ['order_id' => $order_id] );
+        
         if ( $order_id <= 0 ) {
             $this->log( 'Invalid order ID.', 'warning', ['order_id' => $order_id] );
             return;
@@ -75,13 +77,24 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
 
         $token = $this->get_option( 'token' );
         if ( empty( $token ) ) {
-            $this->log( 'Tiny API Token not set.', 'error', ['order_id' => $order_id] );
+            $this->log( 'Tiny API Token not set. Configure em WooCommerce > Settings > Integrations > Tiny Webhook.', 'error', ['order_id' => $order_id] );
             return;
         }
 
         $order = wc_get_order( $order_id );
-        if ( ! $order || ! $this->has_backorder_items( $order ) ) {
-            $this->log( 'No backorder items.', 'info', ['order_id' => $order_id] );
+        if ( ! $order ) {
+            $this->log( 'Order not found.', 'error', ['order_id' => $order_id] );
+            return;
+        }
+        
+        $has_sob_encomenda = $order->get_meta( 'has_sob_encomenda' );
+        $this->log( 'Checking backorder status.', 'debug', [
+            'order_id' => $order_id,
+            'has_sob_encomenda_meta' => $has_sob_encomenda ?: 'not set'
+        ] );
+        
+        if ( ! $this->has_backorder_items( $order ) ) {
+            $this->log( 'No backorder items detected. Skipping Tiny notification.', 'info', ['order_id' => $order_id] );
             return;
         }
 
@@ -95,11 +108,13 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
         // Agenda via Action Scheduler se disponível
         if ( function_exists( 'as_schedule_single_action' ) ) {
             $when = time() + self::DELAY_SECONDS;
-            $this->log( sprintf( 'Scheduling Tiny check at %s.', date( 'Y-m-d H:i:s', $when ) ), 'debug', ['order_id' => $order_id, 'when' => $when] );
+            $this->log( sprintf( 'Scheduling Tiny check at %s.', gmdate( 'Y-m-d H:i:s', $when ) ), 'info', ['order_id' => $order_id, 'when' => $when] );
             as_schedule_single_action( $when, 'wcbc_tiny_notify_backorder', ['order_id' => $order_id], 'wcbc' );
+            $this->log( 'Action scheduled successfully via Action Scheduler.', 'info', ['order_id' => $order_id] );
         } else {
             $this->log( 'Action Scheduler unavailable. Using wp_schedule_single_event fallback.', 'warning', ['order_id' => $order_id] );
             wp_schedule_single_event( time() + self::DELAY_SECONDS, 'wcbc_tiny_notify_backorder', ['order_id' => $order_id] );
+            $this->log( 'Action scheduled via wp_schedule_single_event.', 'info', ['order_id' => $order_id] );
         }
     }
 
@@ -137,12 +152,19 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
         }
     }
 
-    // Detecta itens em backorder utilizando API interna do WC_Order_Item
+    // Detecta itens em backorder usando a meta salva pelo plugin principal
     protected function has_backorder_items( WC_Order $order ): bool {
-        foreach ( $order->get_items( 'line_item' ) as $item ) {
-            if ( method_exists( $item, 'is_on_backorder' ) && $item->is_on_backorder() ) {
+        // Usa a meta 'has_sob_encomenda' salva no checkout pelo plugin principal
+        // Isso é mais confiável que verificar is_on_backorder() pois o estoque pode mudar após a compra
+        if ( 'yes' === $order->get_meta( 'has_sob_encomenda' ) ) {
             return true;
         }
+        
+        // Fallback: verifica itens individualmente (menos confiável)
+        foreach ( $order->get_items( 'line_item' ) as $item ) {
+            if ( method_exists( $item, 'is_on_backorder' ) && $item->is_on_backorder() ) {
+                return true;
+            }
         }
         return false;
     }
