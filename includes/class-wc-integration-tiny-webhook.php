@@ -225,18 +225,34 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
         $marker_id = (int) $this->get_option( 'marker_id' );
         $desc      = $this->get_option( 'marker_desc' );
         $url       = 'https://api.tiny.com.br/api2/pedido.marcadores.incluir';
-        $payload   = [
+        
+        // Monta o array de marcadores no formato esperado pela API
+        $marcadores = [
+            'marcadores' => [
+                [
+                    'marcador' => [
+                        'id' => $marker_id,
+                        'descricao' => $desc
+                    ]
+                ]
+            ]
+        ];
+        
+        // API do Tiny espera os parâmetros como query string, não como JSON no corpo
+        $request_url = add_query_arg( [
             'token'      => $token,
             'idPedido'   => $tiny_id,
-            'marcadores' => [[ 'marcador' => ['id' => $marker_id, 'descricao' => $desc] ]],
+            'marcadores' => wp_json_encode( $marcadores ),
             'formato'    => 'json',
-        ];
+        ], $url );
+        
+        $this->log( 'Sending marker request.', 'debug', [
+            'order_id' => $order_id,
+            'tiny_id' => $tiny_id,
+            'marker_id' => $marker_id
+        ] );
 
-        $res = wp_remote_post( $url, [
-            'body'    => wp_json_encode( $payload ),
-            'timeout' => 15,
-            'headers' => ['Content-Type' => 'application/json; charset=utf-8'],
-        ]);
+        $res = wp_remote_get( $request_url, ['timeout' => 15] );
 
         if ( is_wp_error( $res ) ) {
             $this->log( 'Tiny HTTP error: ' . $res->get_error_message(), 'error', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
@@ -250,6 +266,8 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
         }
 
         $body = wp_remote_retrieve_body( $res );
+        $this->log( 'Tiny API response.', 'debug', ['order_id' => $order_id, 'response' => $body] );
+        
         $data = json_decode( $body, true );
         if ( JSON_ERROR_NONE !== json_last_error() ) {
             $this->log( 'Marker JSON parse error: ' . json_last_error_msg(), 'error', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
