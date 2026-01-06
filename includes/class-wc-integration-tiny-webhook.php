@@ -222,40 +222,21 @@ class WC_Integration_Tiny_Webhook extends WC_Integration {
     // Envia marcador ao Tiny e valida resposta
     protected function send_marker( int $tiny_id, int $order_id ): bool {
         $token     = $this->get_option( 'token' );
-        $marker_id = $this->get_option( 'marker_id' );
+        $marker_id = (int) $this->get_option( 'marker_id' );
         $desc      = $this->get_option( 'marker_desc' );
         $url       = 'https://api.tiny.com.br/api2/pedido.marcadores.incluir';
-        
-        // Monta o JSON dos marcadores no formato esperado pela API
-        $marcadores_json = wp_json_encode([
-            'marcadores' => [
-                [
-                    'marcador' => [
-                        'id' => (string) $marker_id,
-                        'descricao' => $desc
-                    ]
-                ]
-            ]
-        ]);
-        
-        // API Tiny usa GET com query parameters
-        $args = [
+        $payload   = [
             'token'      => $token,
             'idPedido'   => $tiny_id,
-            'marcadores' => $marcadores_json,
+            'marcadores' => [[ 'marcador' => ['id' => $marker_id, 'descricao' => $desc] ]],
             'formato'    => 'json',
         ];
-        
-        $request_url = add_query_arg( $args, $url );
-        
-        $this->log( 'Sending marker to Tiny.', 'debug', [
-            'order_id' => $order_id,
-            'tiny_id' => $tiny_id,
-            'marker_id' => $marker_id,
-            'marker_desc' => $desc
-        ] );
 
-        $res = wp_remote_get( $request_url, ['timeout' => 15] );
+        $res = wp_remote_post( $url, [
+            'body'    => wp_json_encode( $payload ),
+            'timeout' => 15,
+            'headers' => ['Content-Type' => 'application/json; charset=utf-8'],
+        ]);
 
         if ( is_wp_error( $res ) ) {
             $this->log( 'Tiny HTTP error: ' . $res->get_error_message(), 'error', ['order_id' => $order_id, 'tiny_id' => $tiny_id] );
